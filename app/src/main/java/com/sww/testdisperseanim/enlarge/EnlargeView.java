@@ -11,6 +11,7 @@ import android.util.AttributeSet;
 import android.util.Log;
 import android.view.View;
 import android.view.animation.LinearInterpolator;
+import android.view.animation.OvershootInterpolator;
 
 import com.sww.testdisperseanim.R;
 
@@ -100,7 +101,7 @@ public class EnlargeView extends View {
                 @Override
                 public void onAnimationEnd(Animator animation) {
                     super.onAnimationEnd(animation);
-
+                    mState = new MergeState();
                 }
             });
             mValueAnimator.start();
@@ -113,15 +114,76 @@ public class EnlargeView extends View {
         }
     }
 
+    private class MergeState extends SplashState {
+
+        public MergeState(){
+            mValueAnimator = ValueAnimator.ofFloat(mCircleRadius,mRotateRadius);
+            mValueAnimator.setDuration(mRotateDuration);
+            mValueAnimator.setInterpolator(new OvershootInterpolator(10f));
+//            mValueAnimator.setInterpolator(new LinearInterpolator());
+            mValueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    mCurrentRotateRadius = (float) animation.getAnimatedValue();
+                    Log.e(TAG, "onAnimationUpdate: mCircleRadius = [" + mCircleRadius + "], " + mCurrentRotateRadius);
+                    Log.e(TAG, "onAnimationUpdate: mRotateRadius = [" + mRotateRadius + "], " + mCurrentRotateRadius);
+                    invalidate();
+                }
+            });
+            mValueAnimator.addListener(new AnimatorListenerAdapter() {
+                @Override
+                public void onAnimationEnd(Animator animation) {
+                    super.onAnimationEnd(animation);
+                    mState = new ExpandState();
+                }
+            });
+            mValueAnimator.reverse(); // 变化值的大小从end到begin;
+//            mValueAnimator.start(); // 变化值的大小从begin到end;
+        }
+
+        @Override
+        void drawState(Canvas canvas) {
+            drawBackground(canvas);
+            drawCircles(canvas);
+        }
+
+    }
+
+    private class ExpandState extends SplashState {
+
+        public ExpandState() {
+            mValueAnimator = ValueAnimator.ofFloat(mCircleRadius, mDistance);
+            mValueAnimator.setDuration(mRotateDuration);
+            mValueAnimator.setInterpolator(new LinearInterpolator());
+            mValueAnimator.addUpdateListener(new ValueAnimator.AnimatorUpdateListener() {
+                @Override
+                public void onAnimationUpdate(ValueAnimator animation) {
+                    mCurrentHoleRadius = (float) animation.getAnimatedValue();
+                    invalidate();
+                }
+            });
+            mValueAnimator.start();
+        }
+
+        @Override
+        void drawState(Canvas canvas) {
+            drawBackground(canvas);
+        }
+
+    }
+
     private static final String TAG = "EnlargeView";
-    private void drawBackground(Canvas canvas){
-//        Log.e(TAG, "drawBackground: " + mCurrentHoleRadius);
-//        if (mCurrentHoleRadius>0){
-//            float strokeWidth = mDistance -mCurrentHoleRadius;
-//            float radius = strokeWidth/2 + mCurrentHoleRadius;
-//            mHolePaint.setStrokeWidth(strokeWidth);
-//            canvas.drawCircle(mCenterX,mCenterY,radius,mHolePaint);
-//        }
+
+    private void drawBackground(Canvas canvas) {
+        if (mCurrentHoleRadius > 0) {
+            // 距离 - 当前半径
+            float strokeWidth = mDistance - mCurrentHoleRadius;
+            float radius = strokeWidth / 2 + mCurrentHoleRadius;
+            mHolePaint.setStrokeWidth(strokeWidth);
+            canvas.drawCircle(mCenterX, mCenterY, radius, mHolePaint);
+        } else {
+            canvas.drawColor(mBackgroundColor);
+        }
     }
 
     private void drawCircles(Canvas canvas) {
@@ -129,7 +191,7 @@ public class EnlargeView extends View {
         for (int i = 0; i < mCircleColors.length; i++) {
             // x = r * cos(a) + centX;
             // y = r * sin(a) + centY;
-            float angle = i * rotateAngle + mCurrentRotateAngle;
+            float angle = i * rotateAngle + mCurrentRotateAngle;  // angle这里的度数一定要换算成Math.PI;
             float cx = (float) (Math.cos(angle) * mCurrentRotateRadius + mCenterX);
             float cy = (float) (Math.sin(angle) * mCurrentRotateRadius + mCenterY);
             mPaint.setColor(mCircleColors[i]);

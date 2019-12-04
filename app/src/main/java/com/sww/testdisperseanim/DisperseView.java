@@ -88,9 +88,12 @@ public class DisperseView extends View {
 
     @Override
     public boolean onTouchEvent(MotionEvent event) {
-        if (event.getAction() == MotionEvent.ACTION_DOWN){
-            //执行动画
-            animator.start();
+        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+            if (animator != null && !animator.isRunning()) {
+                //执行动画
+                animator.start();
+            }
+
         }
         return super.onTouchEvent(event);
     }
